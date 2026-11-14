@@ -87,6 +87,11 @@ public class Evento implements Comparable<Evento> {
 
     /** OJO: el código es la clave del Map; solo el GestorEventos debe cambiarlo. */
     public void setCodigo(String codigo) {
+        this.codigo = validarCodigo(codigo);
+    }
+
+    /** Normaliza y valida un código; lo usa también el gestor antes de cambiar una clave del Map. */
+    public static String validarCodigo(String codigo) {
         String c = normalizarCodigo(codigo);
         if (c.isEmpty()) {
             throw new IllegalArgumentException("El código del evento es obligatorio");
@@ -94,7 +99,7 @@ public class Evento implements Comparable<Evento> {
         if (!c.matches("[A-Z0-9-]{3,12}")) {
             throw new IllegalArgumentException("Código inválido: use de 3 a 12 letras, números o guiones (ej. EV-101)");
         }
-        this.codigo = c;
+        return c;
     }
 
     public String getNombre() {
