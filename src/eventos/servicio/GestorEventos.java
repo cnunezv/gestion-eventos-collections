@@ -11,8 +11,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -49,6 +51,14 @@ public class GestorEventos {
      */
     private final NavigableSet<String> categorias = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
+    /**
+     * Agenda: fecha -> eventos de ese día.
+     * TreeMap porque mantiene las FECHAS ORDENADAS (LocalDate es Comparable: orden cronológico)
+     * y permite consultas por rango (subMap) o "el próximo día con eventos" (ceilingKey),
+     * cosas que un HashMap no puede hacer. Una fecha puede tener varios eventos: valor = List.
+     */
+    private final NavigableMap<LocalDate, List<Evento>> agenda = new TreeMap<>();
+
     /* ======================= EVENTOS ======================= */
 
     /** Registra un evento nuevo en la lista general y en el índice por código. */
@@ -61,6 +71,7 @@ public class GestorEventos {
         }
         eventos.add(evento);
         eventosPorCodigo.put(evento.getCodigo(), evento);
+        agregarAAgenda(evento);
         return evento;
     }
 
@@ -89,6 +100,49 @@ public class GestorEventos {
 
     public int totalEventos() {
         return eventos.size();
+    }
+
+    /* ======================= INFORMACIÓN ORDENADA ======================= */
+
+    /** Agenda completa, recorrida en orden cronológico por el TreeMap. */
+    public NavigableMap<LocalDate, List<Evento>> agendaPorFecha() {
+        return Collections.unmodifiableNavigableMap(agenda);
+    }
+
+    /** Eventos entre dos fechas (incluidas) usando subMap del TreeMap, sin recorrer todo. */
+    public NavigableMap<LocalDate, List<Evento>> agendaEntre(LocalDate desde, LocalDate hasta) {
+        if (desde == null || hasta == null || desde.isAfter(hasta)) {
+            throw new IllegalArgumentException("Rango de fechas inválido");
+        }
+        return Collections.unmodifiableNavigableMap(agenda.subMap(desde, true, hasta, true));
+    }
+
+    /** Primera fecha con eventos igual o posterior a la indicada (ceilingKey). null si no hay. */
+    public LocalDate proximaFechaConEventos(LocalDate desde) {
+        return agenda.ceilingKey(desde);
+    }
+
+    /**
+     * Eventos ordenados por código. Usa un TreeSet que ordena con el compareTo de Evento
+     * (orden natural, Comparable). Se construye en el momento de la consulta.
+     */
+    public Set<Evento> eventosOrdenadosPorCodigo() {
+        return Collections.unmodifiableSet(new TreeSet<>(eventos));
+    }
+
+    private void agregarAAgenda(Evento evento) {
+        agenda.computeIfAbsent(evento.getFecha(), f -> new ArrayList<>()).add(evento);
+    }
+
+    /** Quita el evento de la lista de su fecha; si la fecha queda vacía, elimina la clave. */
+    private void quitarDeAgenda(Evento evento, LocalDate fecha) {
+        List<Evento> delDia = agenda.get(fecha);
+        if (delDia != null) {
+            delDia.remove(evento);
+            if (delDia.isEmpty()) {
+                agenda.remove(fecha);
+            }
+        }
     }
 
     /* ======================= CATEGORÍAS ======================= */
