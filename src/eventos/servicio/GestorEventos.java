@@ -11,6 +11,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Reglas de negocio del sistema de eventos. Es la ÚNICA clase que modifica las colecciones,
@@ -39,12 +42,20 @@ public class GestorEventos {
      */
     private final Map<String, Participante> participantesPorCorreo = new HashMap<>();
 
+    /**
+     * Categorías de evento: únicas y en orden alfabético.
+     * TreeSet con String.CASE_INSENSITIVE_ORDER: "Cultural" y "cultural" se consideran la
+     * MISMA categoría (el comparador devuelve 0), así que la segunda no se agrega.
+     */
+    private final NavigableSet<String> categorias = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+
     /* ======================= EVENTOS ======================= */
 
     /** Registra un evento nuevo en la lista general y en el índice por código. */
     public Evento registrarEvento(String codigo, String nombre, LocalDate fecha, String categoria,
                                   Prioridad prioridad, int cupoMaximo) {
-        Evento evento = new Evento(codigo, nombre, fecha, categoria, prioridad, cupoMaximo); // valida datos
+        String categoriaRegistrada = categoriaExistente(categoria); // referencia a categoría existente
+        Evento evento = new Evento(codigo, nombre, fecha, categoriaRegistrada, prioridad, cupoMaximo); // valida datos
         if (eventosPorCodigo.containsKey(evento.getCodigo())) {
             throw new IllegalArgumentException("Ya existe un evento con el código " + evento.getCodigo());
         }
@@ -78,6 +89,39 @@ public class GestorEventos {
 
     public int totalEventos() {
         return eventos.size();
+    }
+
+    /* ======================= CATEGORÍAS ======================= */
+
+    /**
+     * Registra una categoría. Retorna false si ya existía (sin importar mayúsculas):
+     * el método add del Set es el que detecta el duplicado.
+     */
+    public boolean registrarCategoria(String nombre) {
+        if (nombre == null || nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre de la categoría es obligatorio");
+        }
+        return categorias.add(nombre.trim());
+    }
+
+    /**
+     * Devuelve la categoría tal como quedó registrada ("cultural" -> "Cultural").
+     * Lanza excepción si no existe: un evento no puede referenciar una categoría inexistente.
+     */
+    public String categoriaExistente(String nombre) {
+        if (nombre == null || nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("La categoría es obligatoria");
+        }
+        String encontrada = categorias.ceiling(nombre.trim()); // menor elemento >= nombre según el comparador
+        if (encontrada == null || !encontrada.equalsIgnoreCase(nombre.trim())) {
+            throw new IllegalArgumentException("La categoría '" + nombre.trim() + "' no existe. Regístrela primero");
+        }
+        return encontrada;
+    }
+
+    /** Categorías en orden alfabético (lo garantiza el TreeSet). */
+    public Set<String> listarCategorias() {
+        return Collections.unmodifiableSet(categorias);
     }
 
     /* ======================= PARTICIPANTES ======================= */
