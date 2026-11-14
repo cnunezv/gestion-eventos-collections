@@ -209,6 +209,22 @@ public class GestorEventos {
 
     /* ======================= CONSISTENCIA ======================= */
 
+    /** Describe en qué colecciones está un evento (para demostrar dónde queda almacenado). */
+    public String ubicacionEnColecciones(Evento evento) {
+        StringBuilder sb = new StringBuilder();
+        int posicion = eventos.indexOf(evento);
+        sb.append("  - ArrayList eventos        : ").append(posicion >= 0 ? "posición " + posicion : "NO está").append('\n');
+        sb.append("  - HashMap eventosPorCodigo : ")
+          .append(eventosPorCodigo.get(evento.getCodigo()) == evento ? "clave " + evento.getCodigo() : "NO está").append('\n');
+        List<Evento> delDia = agenda.get(evento.getFecha());
+        sb.append("  - TreeMap agenda           : ")
+          .append(delDia != null && delDia.contains(evento) ? "fecha " + evento.getFecha() + " (" + delDia.size() + " evento(s) ese día)" : "NO está")
+          .append('\n');
+        sb.append("  - PriorityQueue preparación: ").append(colaPreparacion.contains(evento) ? "en la cola" : "no está en la cola");
+        return sb.toString();
+    }
+
+
     /**
      * Revisa que las colecciones estén sincronizadas. Retorna la lista de problemas
      * encontrados (vacía si todo está bien).
