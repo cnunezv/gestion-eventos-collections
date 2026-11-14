@@ -1,5 +1,6 @@
 package eventos.servicio;
 
+import eventos.modelo.EstadoEvento;
 import eventos.modelo.Evento;
 import eventos.modelo.Participante;
 import eventos.modelo.Prioridad;
@@ -13,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -59,6 +62,13 @@ public class GestorEventos {
      */
     private final NavigableMap<LocalDate, List<Evento>> agenda = new TreeMap<>();
 
+    /**
+     * Cola de preparación logística (salón, sonido, refrigerios...).
+     * PriorityQueue: NO sale el primero que llegó (eso sería FIFO), sino el de mayor prioridad
+     * según ComparadoresEvento.POR_PRIORIDAD_DE_PREPARACION.
+     */
+    private final Queue<Evento> colaPreparacion = new PriorityQueue<>(ComparadoresEvento.POR_PRIORIDAD_DE_PREPARACION);
+
     /* ======================= EVENTOS ======================= */
 
     /** Registra un evento nuevo en la lista general y en el índice por código. */
@@ -100,6 +110,58 @@ public class GestorEventos {
 
     public int totalEventos() {
         return eventos.size();
+    }
+
+    /* ======================= COLA DE PREPARACIÓN (PRIORIDAD) ======================= */
+
+    /** Pone un evento programado en la cola de preparación logística. */
+    public Evento agregarAColaPreparacion(String codigo) {
+        Evento evento = obtenerEvento(codigo);
+        if (evento.getEstado() == EstadoEvento.PREPARADO) {
+            throw new IllegalStateException("El evento " + evento.getCodigo() + " ya fue preparado");
+        }
+        if (colaPreparacion.contains(evento)) {
+            throw new IllegalStateException("El evento " + evento.getCodigo() + " ya está en la cola de preparación");
+        }
+        colaPreparacion.offer(evento);
+        return evento;
+    }
+
+    /** Consulta (sin sacar) el próximo evento a preparar: peek. null si la cola está vacía. */
+    public Evento consultarProximoAPreparar() {
+        return colaPreparacion.peek();
+    }
+
+    /** Saca de la cola el evento de mayor prioridad (poll) y lo marca como PREPARADO. */
+    public Evento prepararSiguienteEvento() {
+        Evento evento = colaPreparacion.poll();
+        if (evento == null) {
+            throw new IllegalStateException("No hay eventos en la cola de preparación");
+        }
+        evento.setEstado(EstadoEvento.PREPARADO);
+        return evento;
+    }
+
+    public boolean estaEnColaPreparacion(Evento evento) {
+        return colaPreparacion.contains(evento);
+    }
+
+    public int totalEnColaPreparacion() {
+        return colaPreparacion.size();
+    }
+
+    /**
+     * Contenido de la cola EN EL ORDEN EN QUE SALDRÍA. Ojo: recorrer una PriorityQueue con
+     * for-each no da ese orden (es un heap), por eso se vacía una COPIA con poll().
+     */
+    public List<Evento> colaPreparacionEnOrden() {
+        PriorityQueue<Evento> copia = new PriorityQueue<>(ComparadoresEvento.POR_PRIORIDAD_DE_PREPARACION);
+        copia.addAll(colaPreparacion);
+        List<Evento> enOrden = new ArrayList<>();
+        while (!copia.isEmpty()) {
+            enOrden.add(copia.poll());
+        }
+        return enOrden;
     }
 
     /* ======================= INFORMACIÓN ORDENADA ======================= */
